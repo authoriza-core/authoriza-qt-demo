@@ -1,0 +1,46 @@
+
+###  **.gitignore**
+
+```gitignore
+# Сборка
+build/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.o
+*.exe
+*.so
+*.dll
+
+# Qt Creator
+*.user
+*.creator
+*.files
+*.includes
+*.config
+*.cflags
+*.cxxflags
+*.pdb
+
+# Visual Studio
+*.vcxproj
+*.sln
+*.suo
+.vs/
+*.user
+
+# Временные файлы
+*.tmp
+*.log
+*.bak
+
+# Секреты
+*.env
+*.key
+*.pem
+*.crt
+*.csr
+
+# vcpkg
+vcpkg_installed/
