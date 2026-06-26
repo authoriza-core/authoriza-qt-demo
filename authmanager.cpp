@@ -1,69 +1,66 @@
 #include "authmanager.h"
-#include <QNetworkAccessManager>
-#include <QNetworkRequest>
-#include <QNetworkReply>
-#include <QSettings>
-#include <QUrl>
-#include <QDateTime>
-#include <QtNetworkAuth>
-#include <QDesktopServices>
-#include <QUrlQuery>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QDebug>
-#include <QRandomGenerator>
-#include <QCryptographicHash>
-#include <jwt-cpp/jwt.h>
-#include <nlohmann/json.hpp>
+#include <QNetworkAccessManager>      // Для выполнения HTTP-запросов
+#include <QNetworkRequest>            // Для формирования HTTP-запросов
+#include <QNetworkReply>              // Для обработки ответов на HTTP-запросы
+#include <QSettings>                  // Для сохранения токенов в реестр/файл
+#include <QUrl>                       // Для работы с URL
+#include <QDateTime>                  // Для работы с датой и временем
+#include <QtNetworkAuth>              // Модуль Qt для OAuth2/OIDC
+#include <QDesktopServices>           // Для открытия браузера
+#include <QUrlQuery>                  // Для формирования параметров URL
+#include <QJsonDocument>              // Для парсинга JSON-ответов
+#include <QJsonObject>                // Для работы с JSON-объектами
+#include <QDebug>                     // Для отладочного вывода
+#include <QRandomGenerator>           // Для генерации случайных чисел (PKCE)
+#include <QCryptographicHash>         // Для хэширования (SHA-256 для PKCE)
+#include <jwt-cpp/jwt.h>              // Для декодирования JWT токенов
+#include <nlohmann/json.hpp>          // Для работы с JSON (парсинг Payload)
 
 // ===== Конструктор =====
-// Инициализация: подключаем сигналы OIDC, настраиваем таймер автообновления
 AuthManager::AuthManager(QObject *parent)
     : QObject(parent)
 {
-    // Сигналы от OIDC клиента
+    // Подключаем сигналы от OIDC-клиента
     connect(&oidc, &QOAuth2AuthorizationCodeFlow::granted,
             this, &AuthManager::onAuthenticationSuccess);
     connect(&oidc, &QOAuth2AuthorizationCodeFlow::error,
             this, &AuthManager::onAuthenticationError);
 
-    // Таймер для проверки токенов каждую минуту
+    // Таймер для автоматической проверки токенов (каждую минуту)
     autoRefreshTimer = new QTimer(this);
     connect(autoRefreshTimer, &QTimer::timeout,
             this, &AuthManager::checkAndRefresh);
     autoRefreshTimer->start(60000);
 
-    m_refreshCount = 0;
+    m_refreshCount = 0; // Счетчик обновлений для уведомлений
 }
 
 // ===== Настройка OIDC провайдера =====
-// Устанавливаем URL для авторизации, токенов, Client ID, Scope
-// Создаем локальный HTTP сервер для получения callback
 void AuthManager::setupOIDC(const QString &clientId)
 {
+    // Устанавливаем URL для авторизации и получения токенов
     oidc.setAuthorizationUrl(QUrl("https://a-kalinin-authoriza-backend-stand-d37a.twc1.net/oidc/auth"));
     oidc.setAccessTokenUrl(QUrl("https://a-kalinin-authoriza-backend-stand-d37a.twc1.net/oidc/token"));
     oidc.setClientIdentifier(clientId);
-    oidc.setScope("openid profile email offline_access");
+    oidc.setScope("openid profile email offline_access"); // Запрашиваем ID Token и Refresh Token
 
-    // Локальный сервер на порту 8080 для получения callback
+    // Создаём локальный HTTP-сервер на порту 8080 для получения callback
     QOAuthHttpServerReplyHandler *handler = new QOAuthHttpServerReplyHandler(8080, this);
     oidc.setReplyHandler(handler);
 
+    // Подключаем сигнал получения callback
     connect(handler, &QOAuthHttpServerReplyHandler::callbackReceived,
             this, &AuthManager::onCallbackReceived);
 
     qDebug() << "OIDC настроен. Client ID:" << clientId;
 }
 
-// ===== Вход =====
-// Генерируем PKCE code verifier и code challenge
-// Открываем URL авторизации в браузере
+// ===== Вход (Authorization Code Flow с PKCE) =====
 void AuthManager::login()
 {
     qDebug() << "=== AuthManager::login() ВЫЗВАН ===";
 
-    // Генерация code verifier (рандомная строка для PKCE)
+    // 1. Генерируем code_verifier (рандомная строка для PKCE)
     const QString possibleCharacters("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~");
     const int randomStringLength = 64;
 
@@ -74,12 +71,12 @@ void AuthManager::login()
     }
     m_codeVerifier = codeVerifier;
 
-    // Создание code challenge (SHA256 хеш от code verifier, в base64url)
+    // 2. Вычисляем code_challenge (SHA-256 хэш от code_verifier, в Base64Url)
     QCryptographicHash hash(QCryptographicHash::Sha256);
     hash.addData(codeVerifier.toUtf8());
     QString codeChallenge = hash.result().toBase64(QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals);
 
-    // Формирование URL для авторизации с PKCE параметрами
+    // 3. Формируем URL для авторизации с параметрами
     QUrl authUrl = oidc.authorizationUrl();
     QUrlQuery query;
     query.addQueryItem("client_id", oidc.clientIdentifier());
@@ -93,20 +90,20 @@ void AuthManager::login()
 
     qDebug() << "Открываем URL:" << authUrl.toString();
 
-    // Открытие в браузере
+    // 4. Открываем браузер для входа пользователя
     QDesktopServices::openUrl(authUrl);
 }
 
 // ===== Получен callback от OIDC провайдера =====
-// Извлекаем код авторизации и обмениваем его на токены
 void AuthManager::onCallbackReceived(const QVariantMap &values)
 {
     qDebug() << "=== Callback получен! ===";
 
     if (values.contains("code")) {
+        // Извлекаем код авторизации
         QString code = values["code"].toString();
         qDebug() << "Код авторизации:" << code;
-        exchangeCodeForToken(code);
+        exchangeCodeForToken(code); // Обмениваем код на токены
     } else if (values.contains("error")) {
         qDebug() << "Ошибка в callback:" << values["error"].toString();
         emit errorOccurred("Ошибка: " + values["error"].toString());
@@ -114,13 +111,13 @@ void AuthManager::onCallbackReceived(const QVariantMap &values)
 }
 
 // ===== Обмен кода на токены =====
-// Отправляем POST запрос к /token с authorization_code и PKCE verifier
 void AuthManager::exchangeCodeForToken(const QString &code)
 {
     qDebug() << "=== Обмен кода на токен ===";
 
     QNetworkAccessManager *nam = new QNetworkAccessManager(this);
 
+    // Формируем POST-запрос к /token
     QUrl tokenUrl = oidc.accessTokenUrl();
     QUrlQuery query;
     query.addQueryItem("grant_type", "authorization_code");
@@ -140,11 +137,12 @@ void AuthManager::exchangeCodeForToken(const QString &code)
 
                     emit tokenEndpointResponseReceived(response);
 
+                    // Парсим JSON-ответ
                     QJsonDocument doc = QJsonDocument::fromJson(response.toUtf8());
                     QJsonObject obj = doc.object();
 
                     if (obj.contains("access_token")) {
-                        // Сохранение токенов и времени истечения
+                        // Сохраняем токены и время истечения
                         m_accessToken = obj["access_token"].toString();
                         m_refreshToken = obj["refresh_token"].toString();
                         m_idToken = obj["id_token"].toString();
@@ -176,9 +174,7 @@ void AuthManager::exchangeCodeForToken(const QString &code)
     nam->post(request, query.toString().toUtf8());
 }
 
-// ===== Обновление токенов =====
-// Используем refresh_token для получения новой пары токенов
-// Поддерживается ротация refresh_token (сервер может выдать новый)
+// ===== Обновление токенов через Refresh Token =====
 void AuthManager::refreshTokens()
 {
     if (m_refreshToken.isEmpty()) {
@@ -196,11 +192,12 @@ void AuthManager::refreshTokens()
 
     QNetworkAccessManager *nam = new QNetworkAccessManager(this);
 
+    // Формируем POST-запрос с grant_type=refresh_token
     QUrlQuery query;
     query.addQueryItem("grant_type", "refresh_token");
     query.addQueryItem("refresh_token", m_refreshToken);
     query.addQueryItem("client_id", oidc.clientIdentifier());
-    query.addQueryItem("client_secret", "");
+    query.addQueryItem("client_secret", ""); // Для публичного клиента
 
     QNetworkRequest request(tokenUrl);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
@@ -220,17 +217,16 @@ void AuthManager::refreshTokens()
                     QJsonObject obj = doc.object();
 
                     if (obj.contains("access_token")) {
-                        // Обновление токенов
+                        // Обновляем токены
                         m_accessToken = obj["access_token"].toString();
                         m_idToken = obj["id_token"].toString();
 
-                        // Ротация refresh_token: если сервер выдал новый - сохраняем
+                        // Ротация refresh_token: если сервер выдал новый — сохраняем
                         if (obj.contains("refresh_token")) {
                             m_refreshToken = obj["refresh_token"].toString();
                             qDebug() << " Refresh Token обновлен (ротация):" << m_refreshToken;
                         } else {
                             qDebug() << " Refresh Token НЕ ПРИШЁЛ в ответе (сервер не выдал новый)";
-                            // Если сервер не выдал новый, оставляем старый
                         }
 
                         int expiresIn = obj["expires_in"].toInt();
@@ -244,7 +240,7 @@ void AuthManager::refreshTokens()
 
                         qDebug() << "Токены обновлены!";
 
-                        saveSession(); // Сохраняем обновленную сессию
+                        saveSession(); // Сохраняем обновлённую сессию
                         emit tokensRefreshed();
                         emit authenticated();
                     } else {
@@ -252,7 +248,7 @@ void AuthManager::refreshTokens()
                         emit errorOccurred("В ответе нет access_token");
                     }
                 } else {
-                    // ===== УЛУЧШЕННАЯ ОБРАБОТКА ОШИБОК =====
+                    // Улучшенная обработка ошибок
                     if (httpCode == 400 || httpCode == 401) {
                         qDebug() << "Refresh Token невалиден или истек!";
                         QString userMessage = "Ваша сессия истекла или токен недействителен.\n"
@@ -260,7 +256,6 @@ void AuthManager::refreshTokens()
                         emit errorOccurred(userMessage);
                         handleSessionExpired();
                     } else if (httpCode == 0) {
-                        // Ошибка соединения (сервер недоступен)
                         QString userMessage = "Сервер Авторизы недоступен.\n"
                                               "Проверьте подключение к интернету и попробуйте снова.";
                         emit errorOccurred(userMessage);
@@ -278,9 +273,9 @@ void AuthManager::refreshTokens()
 }
 
 // ===== Выход =====
-// Очищаем все токены, удаляем сохраненную сессию, открываем logout URL
 void AuthManager::logout()
 {
+    // Очищаем все токены
     m_accessToken.clear();
     m_refreshToken.clear();
     m_idToken.clear();
@@ -289,52 +284,16 @@ void AuthManager::logout()
     m_codeVerifier.clear();
     m_refreshCount = 0;
 
+    // Очищаем сохранённые данные
     QSettings settings("MyApp", "Authoriza");
     settings.clear();
 
-    // Открытие URL для выхода на сервере
+    // Открываем страницу выхода на сервере
     QUrl logoutUrl("https://a-kalinin-authoriza-backend-stand-d37a.twc1.net/oidc/session/end");
     QDesktopServices::openUrl(logoutUrl);
 }
 
-// ===== Получение информации о пользователе =====
-// Запрос к /me с Access Token в заголовке Authorization
-void AuthManager::fetchUserInfo()
-{
-    qDebug() << "=== fetchUserInfo() Вызван ===";
-
-    if (m_accessToken.isEmpty()) {
-        qDebug() << "Access Token пуст!";
-        emit errorOccurred("Нет Access Token");
-        return;
-    }
-
-    QUrl userInfoUrl("https://a-kalinin-authoriza-backend-stand-d37a.twc1.net/oidc/me");
-
-    QNetworkAccessManager *nam = new QNetworkAccessManager(this);
-    QNetworkRequest request(userInfoUrl);
-    request.setRawHeader("Authorization", "Bearer " + m_accessToken.toUtf8());
-    request.setHeader(QNetworkRequest::UserAgentHeader, "QtAuthoriza/1.0");
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-
-    connect(nam, &QNetworkAccessManager::finished,
-            [this, nam](QNetworkReply *reply) {
-                if (reply->error() == QNetworkReply::NoError) {
-                    QString data = QString::fromUtf8(reply->readAll());
-                    qDebug() << "=== UserInfo УСПЕШНО получен ===";
-                    emit userInfoReceived(data);
-                } else {
-                    qDebug() << "=== Ошибка UserInfo ===";
-                    emit errorOccurred("Ошибка UserInfo: " + reply->errorString());
-                }
-                reply->deleteLater();
-                nam->deleteLater();
-            });
-
-    nam->get(request);
-}
-
-// ===== Геттеры =====
+// ===== Геттеры для токенов =====
 QString AuthManager::getAccessToken() const { return m_accessToken; }
 QString AuthManager::getIdToken() const { return m_idToken; }
 QString AuthManager::getRefreshToken() const { return m_refreshToken; }
@@ -342,7 +301,6 @@ QDateTime AuthManager::getExpirationTime() const { return m_expiresAt; }
 QDateTime AuthManager::getRefreshExpirationTime() const { return m_refreshExpiresAt; }
 
 // ===== Сохранение сессии =====
-// Сохраняем токены и время истечения в QSettings
 void AuthManager::saveSession()
 {
     QSettings settings("MyApp", "Authoriza");
@@ -354,7 +312,6 @@ void AuthManager::saveSession()
 }
 
 // ===== Восстановление сессии =====
-// Загружаем сохраненные токены. Если Access Token скоро истечет - обновляем.
 void AuthManager::restoreSession()
 {
     QSettings settings("MyApp", "Authoriza");
@@ -365,7 +322,7 @@ void AuthManager::restoreSession()
     m_refreshExpiresAt = settings.value("refresh_expires_at").toDateTime();
 
     if (!m_refreshToken.isEmpty()) {
-        // Если до истечения Access Token меньше 5 минут - обновляем
+        // Если до истечения Access Token меньше 5 минут — обновляем сразу
         if (m_expiresAt.isValid() &&
             QDateTime::currentDateTime().secsTo(m_expiresAt) <= 300) {
             qDebug() << "Токен скоро истекает, обновляем при запуске...";
@@ -376,27 +333,20 @@ void AuthManager::restoreSession()
 }
 
 // ===== Успешная аутентификация =====
-// Останавливаем локальный HTTP сервер, сохраняем сессию, генерируем сигнал
 void AuthManager::onAuthenticationSuccess()
 {
-    // Не останавливаем сервер! Он должен продолжать слушать порт 8080
-    // для новых входов.
-    // if (oidc.replyHandler()) { ... handler->close(); ... }
-
-    m_refreshCount = 0;
+    m_refreshCount = 0; // Сбрасываем счётчик при новом входе
     saveSession();
     emit authenticated();
 }
 
-// ===== Обработчик ошибок аутентификации =====
+// ===== Ошибка аутентификации =====
 void AuthManager::onAuthenticationError(const QString &error)
 {
     emit errorOccurred("Ошибка: " + error);
 }
 
-// ===== Периодическая проверка токенов =====
-// Вызывается каждую минуту по таймеру
-// Проверяет время истечения и при необходимости обновляет токены
+// ===== Периодическая проверка токенов (таймер) =====
 void AuthManager::checkAndRefresh()
 {
     qDebug() << "=== checkAndRefresh() ВЫЗВАН ===";
@@ -409,6 +359,7 @@ void AuthManager::checkAndRefresh()
         return;
     }
 
+    // Проверяем время до истечения Refresh Token
     qint64 refreshSecondsLeft = QDateTime::currentDateTime().secsTo(m_refreshExpiresAt);
     qDebug() << "checkAndRefresh: refreshSecondsLeft =" << refreshSecondsLeft;
 
@@ -419,26 +370,25 @@ void AuthManager::checkAndRefresh()
         return;
     }
 
-    // Если Refresh Token скоро истечет
-    // Стало (уведомление за 2 минуты):
+    // Уведомление за 2 минуты до истечения Refresh Token
     if (refreshSecondsLeft <= 120) {
         qDebug() << "Refresh Token скоро истечет (осталось" << refreshSecondsLeft << "сек)";
         emit sessionExpiring();
-        QTimer::singleShot(60000, this, &AuthManager::handleSessionExpired); // Даем 1 минуту на реакцию
+        QTimer::singleShot(60000, this, &AuthManager::handleSessionExpired);
         return;
     }
 
-    // Проверка Access Token - обновляем если осталось меньше 30 секунд
+    // Проверяем время до истечения Access Token
     qint64 secondsLeft = QDateTime::currentDateTime().secsTo(m_expiresAt);
     qDebug() << "checkAndRefresh: secondsLeft (Access) =" << secondsLeft;
 
+    // Обновляем Access Token, если осталось меньше 30 секунд
     if (secondsLeft <= 30 && secondsLeft > 0) {
         m_refreshCount++;
         qDebug() << "Автоматическое обновление токенов (осталось" << secondsLeft << "сек)";
         qDebug() << "Количество обновлений:" << m_refreshCount;
 
-        // После 3-х обновлений генерируем сигнал о скором истечении
-        // Уведомление после 2-х обновлений (вместо 3-х)
+        // Уведомление после 2-х обновлений
         if (m_refreshCount >= 2) {
             emit sessionExpiring();
             m_refreshCount = 0;
@@ -457,11 +407,11 @@ void AuthManager::checkAndRefresh()
 }
 
 // ===== Обработка истечения сессии =====
-// Очищаем все токены, удаляем сохраненную сессию, генерируем сигналы
 void AuthManager::handleSessionExpired()
 {
-    qDebug() << "=== СЕССИЯ ИСТЕКЛА ===";
+    qDebug() << "=== Сессия истекла ===";
 
+    // Очищаем все токены
     m_accessToken.clear();
     m_refreshToken.clear();
     m_idToken.clear();
@@ -469,16 +419,15 @@ void AuthManager::handleSessionExpired()
     m_refreshExpiresAt = QDateTime();
     m_refreshCount = 0;
 
+    // Очищаем сохранённые данные
     QSettings settings("MyApp", "Authoriza");
     settings.clear();
 
-    // Отправляем ТОЛЬКО ОДИН сигнал (и убираем errorOccurred)
+    // Отправляем сигнал об истечении сессии
     emit sessionExpired();
-    // emit errorOccurred("Сессия истекла..."); // ← УБРАТЬ!
 }
 
 // ===== Декодирование JWT токена =====
-// Использует jwt-cpp и nlohmann/json для отображения содержимого токена
 QString decodeJWT(const QString &token)
 {
     if (token.isEmpty()) {
@@ -486,9 +435,10 @@ QString decodeJWT(const QString &token)
     }
 
     try {
+        // Декодируем JWT и извлекаем Payload
         auto decoded = jwt::decode(token.toStdString());
         auto payload = nlohmann::json::parse(decoded.get_payload());
-        return QString::fromStdString(payload.dump(2));
+        return QString::fromStdString(payload.dump(2)); // Форматированный JSON
     } catch (const std::exception &e) {
         return QString("Ошибка декодирования: ") + e.what();
     }
