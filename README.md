@@ -138,7 +138,7 @@ set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL-Win64")
 5. **Вставьте Client ID** в файл `mainwindow.cpp`:
 
 ```cpp
-authManager->setupOIDC("ВАШ_CLIENT_ID");
+authManager->setupOIDC("16e611ef-283d-4837-9776-23e153afdd2f");
 ```
 
 ---
