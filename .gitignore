@@ -1,19 +1,24 @@
 
-###  **.gitignore**
+---
+
+### **.gitignore** 
 
 ```gitignore
-# Сборка
+# ===== Сборка =====
 build/
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
 Makefile
 *.o
+*.obj
 *.exe
 *.so
 *.dll
+*.dylib
+*.a
 
-# Qt Creator
+# ===== Qt Creator =====
 *.user
 *.creator
 *.files
@@ -22,25 +27,48 @@ Makefile
 *.cflags
 *.cxxflags
 *.pdb
+*.autosave
+CMakeLists.txt.user
 
-# Visual Studio
+# ===== Visual Studio =====
 *.vcxproj
+*.vcxproj.filters
 *.sln
 *.suo
 .vs/
 *.user
 
-# Временные файлы
+# ===== Временные файлы =====
 *.tmp
 *.log
 *.bak
+*.swp
+*~
 
-# Секреты
+# ===== Секреты и конфигурации =====
+.env
 *.env
 *.key
 *.pem
 *.crt
 *.csr
+*.p12
+*.pfx
 
-# vcpkg
+# ===== vcpkg =====
 vcpkg_installed/
+vcpkg-manifest-install.log
+
+# ===== IDE =====
+.idea/
+.vscode/
+*.code-workspace
+
+# ===== macOS =====
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ===== Windows =====
+Thumbs.db
+desktop.ini
