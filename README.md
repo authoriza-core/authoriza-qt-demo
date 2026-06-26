@@ -8,14 +8,14 @@
 
 ##  Назначение проекта
 
-Данный проект является примером интеграции Авторизы для стека **Qt Desktop (C++)**. Он демонстрирует:
+Данный проект является эталонным примером интеграции Авторизы для стека **Qt Desktop (C++)**. Он демонстрирует:
 
 - Реализацию **OpenID Connect Authorization Code Flow** с **PKCE**.
 - Получение и отображение токенов (Access, ID, Refresh).
 - Декодирование JWT-токенов и отображение их содержимого (Payload).
-- Получение и отображение UserInfo.
 - Сохранение и восстановление сессии.
 - Ручное и автоматическое обновление токенов.
+- Уведомления об истечении сессии.
 - Выход из приложения с очисткой сессии.
 
 ---
@@ -26,7 +26,7 @@
 |-----------|------------|
 | **Язык** | C++17 |
 | **Фреймворк** | Qt 6.8.0 |
-| **ОIDC клиент** | `QtNetworkAuth` (`QOAuth2AuthorizationCodeFlow`) |
+| **OIDC клиент** | `QtNetworkAuth` (`QOAuth2AuthorizationCodeFlow`) |
 | **HTTP-запросы** | `QNetworkAccessManager` |
 | **Декодирование JWT** | `jwt-cpp` + `nlohmann/json` |
 | **OpenSSL** | 3.3.7 (для работы с криптографией) |
@@ -38,7 +38,7 @@
 
 ##  Требования к окружению
 
-Перед запуском убедиться, что установлены следующие компоненты:
+Перед запуском убедитесь, что установлены следующие компоненты:
 
 - **Qt 6.8.0** или новее (с модулями: `Core`, `Widgets`, `Network`, `NetworkAuth`).
 - **Компилятор C++17**: MinGW 64-bit (рекомендуется) или MSVC 2022.
@@ -53,13 +53,14 @@
 ### 1. Клонирование репозитория
 
 ```bash
-git clone <ссылка на ваш репозиторий>
+git clone <https://github.com/authoriza-core/authoriza-qt-demo.git>
 cd QtAuthoriza
 ```
 
 ### 2. Установка Qt
 
-Скачать и установить Qt 6.8.0 : [https://www.rusrailsim.ru/qt6-qtcreator-ide-installation/].
+Скачайте и установите Qt 6.8.0:  
+[https://www.rusrailsim.ru/qt6-qtcreator-ide-installation/]
 
 При установке **обязательно** выберите компоненты:
 
@@ -67,24 +68,23 @@ cd QtAuthoriza
 - `Qt NetworkAuth`
 - `Qt Network`
 - `Qt Widgets`
-- `CMake` и `Ninja` (в разделе Tools)
+- `CMake` и `Ninja` 
 
 ### 3. Установка OpenSSL (для jwt-cpp)
 
 `jwt-cpp` требует OpenSSL для работы с криптографией.
 
-1. Скачать **Win64 OpenSSL v3.3.7 EXE** с сайта:  
+1. Скачайте **Win64 OpenSSL v3.3.7 EXE** с сайта:  
    [https://slproweb.com/products/Win32OpenSSL.html](https://slproweb.com/products/Win32OpenSSL.html)
-2. Установить в `C:\Program Files\OpenSSL-Win64` (или запомнить выбранный путь).
-3. При установке выбрать опцию **"The OpenSSL binaries (/bin) directory"**.
+2. Установите в `C:\Program Files\OpenSSL-Win64` (или запомните выбранный путь).
+3. При установке выберите опцию **"The OpenSSL binaries (/bin) directory"**.
 
 ### 4. Подключение jwt-cpp и nlohmann/json
 
-Библиотеки уже включены в проект (папки `jwt-cpp-master` и `json-develop`). Если их нет, скачать:
+Библиотеки уже включены в проект (папки `jwt-cpp-master` и `json-develop`). Если их нет, скачайте:
 
 - **jwt-cpp**: [https://github.com/Thalhammer/jwt-cpp](https://github.com/Thalhammer/jwt-cpp) (папка `include`)
 - **nlohmann/json**: [https://github.com/nlohmann/json](https://github.com/nlohmann/json) (файл `single_include/nlohmann/json.hpp`)
-
 
 ---
 
@@ -92,12 +92,12 @@ cd QtAuthoriza
 
 ### 1. Откройте проект в Qt Creator
 
-- Запустить **Qt Creator**.
-- Нажать **«Открыть проект...»** и выбрать `CMakeLists.txt` в папке проекта.
+- Запустите **Qt Creator**.
+- Нажмите **«Открыть проект...»** и выберите `CMakeLists.txt` в папке проекта.
 
 ### 2. Настройка комплекта (Kit)
 
-Убедиться, что в **«Инструменты» → «Параметры» → «Наборы»** выбран комплект с:
+Убедитесь, что в **«Инструменты» → «Параметры» → «Наборы»** выбран комплект с:
 
 - **Версия Qt**: `Qt 6.8.0 (mingw_64)` (или `msvc2022_64`)
 - **Компилятор**: `MinGW 64-bit` (или `MSVC 2022`)
@@ -105,7 +105,7 @@ cd QtAuthoriza
 
 ### 3. Настройка OpenSSL в CMakeLists.txt
 
-Если OpenSSL установлен в нестандартный путь, изменить путь в `CMakeLists.txt`:
+Если OpenSSL установлен в нестандартный путь, измените путь в `CMakeLists.txt`:
 
 ```cmake
 set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL-Win64")
@@ -138,7 +138,7 @@ set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL-Win64")
 5. **Вставьте Client ID** в файл `mainwindow.cpp`:
 
 ```cpp
-authManager->setupOIDC("16e611ef-283d-4837-9776-23e153afdd2f");
+authManager->setupOIDC("ВАШ_CLIENT_ID");
 ```
 
 ---
@@ -166,7 +166,24 @@ authManager->setupOIDC("16e611ef-283d-4837-9776-23e153afdd2f");
 - Статус: `Авторизован `.
 - Время истечения обновлено.
 
-### 3. Выход (Logout)
+### 3. Автоматическое обновление
+
+- Таймер проверяет токены каждую минуту.
+- Обновление происходит за **30 секунд** до истечения Access Token.
+- После **2-х автоматических обновлений** появляется уведомление.
+
+**Ожидаемый результат:**
+- Токены обновляются автоматически без участия пользователя.
+
+### 4. Уведомления о сессии
+
+- За **2 минуты** до истечения Refresh Token появляется диалог.
+- После **2-х автоматических обновлений** появляется уведомление.
+
+**Ожидаемый результат:**
+- Появляется диалог с предложением продлить сессию или выйти.
+
+### 5. Выход (Logout)
 
 - Нажмите **«Logout»**.
 - Все токены очищаются, интерфейс сбрасывается.
@@ -175,10 +192,14 @@ authManager->setupOIDC("16e611ef-283d-4837-9776-23e153afdd2f");
 - Статус: `Не авторизован `.
 - Все поля очищены.
 
-### 4. Восстановление сессии
+### 6. Восстановление сессии
 
 - Закройте и снова запустите приложение.
 - Сессия восстановится автоматически (если Refresh Token был сохранён).
+
+**Ожидаемый результат:**
+- Статус: `Авторизован `.
+- Токены восстановлены.
 
 ---
 
@@ -186,7 +207,7 @@ authManager->setupOIDC("16e611ef-283d-4837-9776-23e153afdd2f");
 
 ```
 QtAuthoriza/
-├── CMakeLists.txt          # Файл сборки CMake
+├── CMakeLists.txt           # Файл сборки CMake
 ├── main.cpp                 # Точка входа
 ├── mainwindow.h             # Заголовок главного окна
 ├── mainwindow.cpp           # Реализация главного окна
@@ -204,9 +225,9 @@ QtAuthoriza/
 
 | Проблема | Решение |
 |----------|---------|
-| **OpenSSL не найден** | Проверьте путь в `CMakeLists.txt` (`OPENSSL_ROOT_DIR`). Убедитесь, что OpenSSL установлен. |
+| **OpenSSL не найден** | Проверьте путь в `CMakeLists.txt` (`OPENSSL_ROOT_DIR`). Убедитесь, что установлена полная версия OpenSSL. |
 | **Порт 8080 занят** | Закройте программы, использующие порт 8080, или измените порт в коде (`authmanager.cpp`, `QOAuthHttpServerReplyHandler`). |
-| **Refresh Token не выдан** | Убедитесь, что в запросе передан `scope=offline_access` и параметр `prompt=login consent`. |
+| **Refresh Token не выдан** | Убедитесь, что в запросе передан `scope=offline_access`. При необходимости добавьте `prompt=login consent`. |
 | **Ошибка декодирования JWT** | Убедитесь, что подключены `jwt-cpp` и `nlohmann/json`. Проверьте пути в `CMakeLists.txt`. |
 | **Ошибка "No valid kits found"** | Настройте комплект (Kit) в Qt Creator с правильной версией Qt и компилятором. |
 
@@ -225,4 +246,6 @@ QtAuthoriza/
 
 **Кристина**  
 Проект выполнен в рамках практики по интеграции Авторизы для стека Qt Desktop (C++).
+
+---
 
