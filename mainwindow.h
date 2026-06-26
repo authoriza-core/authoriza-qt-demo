@@ -1,44 +1,44 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include <QMainWindow>
-#include <QObject>
+#include <QMainWindow>  // Базовый класс для главного окна с меню, панелями и статусной строкой
+#include <QObject>      // Базовый класс для всех объектов Qt с поддержкой сигналов/слотов
 
+// Опережающее объявление класса UI, сгенерированного из .ui файла
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
 
+// Опережающее объявление класса AuthManager, чтобы не подключать заголовочный файл
 class AuthManager;
 
 // ===== Главное окно приложения =====
-// Отвечает за UI и взаимодействие с AuthManager
 class MainWindow : public QMainWindow
 {
-    Q_OBJECT
+    Q_OBJECT   // Макрос для поддержки сигналов и слотов
 
 public:
-    explicit MainWindow(QWidget *parent = nullptr);
-    ~MainWindow();
+    explicit MainWindow(QWidget *parent = nullptr);  // Конструктор
+    ~MainWindow();                                   // Деструктор
 
 private slots:
-    // Слоты для кнопок UI
-    void onLogin();                // Нажатие кнопки "Вход"
-    void onRefresh();              // Нажатие кнопки "Обновить токены"
-    void onLogout();               // Нажатие кнопки "Выход"
+    // Слоты для кнопок
+    void onLogin();          // Нажатие "Вход"
+    void onRefresh();        // Нажатие "Обновить токены"
+    void onLogout();         // Нажатие "Выход"
 
-    // Слоты для сигналов AuthManager
-    void onAuthenticated();        // Успешная аутентификация
-    void onError(const QString &error); // Ошибка
-    void onUserInfoReceived(const QString &data); // Получены данные пользователя
-    void onTokenResponseReceived(const QString &response); // Получен ответ от /token
+    // Слоты для сигналов от AuthManager
+    void onAuthenticated();                          // Успешная аутентификация
+    void onError(const QString &error);              // Ошибка
+    void onTokenResponseReceived(const QString &response); // Ответ от /token
 
     // Слоты для уведомлений о сессии
-    void onSessionExpiring();      // Сессия скоро истечет (показываем диалог)
-    void onSessionExpired();       // Сессия истекла
+    void onSessionExpiring();   // Сессия скоро истечет
+    void onSessionExpired();    // Сессия истекла
 
 private:
-    Ui::MainWindow *ui;
-    AuthManager *authManager;
+    Ui::MainWindow *ui;        // Указатель на интерфейс
+    AuthManager *authManager;  // Указатель на менеджер аутентификации
 };
 
 #endif // MAINWINDOW_H
