@@ -50,7 +50,7 @@ signals:
     void tokenEndpointResponseReceived(const QString &response); // Ответ от /token (для отладки)
 
     // Уведомления о состоянии сессии
-    void sessionExpiring();   // Сессия скоро истечет (за 2 минуты или после 2-х обновлений)
+    void sessionExpiring();   // Сессия скоро истечет (после 2-х обновлений)
     void sessionExpired();    // Сессия истекла
 
 private slots:
