@@ -39,6 +39,9 @@ private slots:
 private:
     Ui::MainWindow *ui;        // Указатель на интерфейс
     AuthManager *authManager;  // Указатель на менеджер аутентификации
+
+    // ===== обновление UI в зависимости от состояния =====
+    void updateUI();
 };
 
 #endif // MAINWINDOW_H
