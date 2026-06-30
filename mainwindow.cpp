@@ -40,6 +40,9 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Пытаемся восстановить сессию при запуске
     authManager->restoreSession();
+
+    // ===== НОВЫЙ ВЫЗОВ: обновляем UI после восстановления сессии =====
+    updateUI();
 }
 
 // ===== Деструктор =====
@@ -48,11 +51,68 @@ MainWindow::~MainWindow()
     delete ui; // Освобождаем память, занятую интерфейсом
 }
 
+
+// ===== обновление UI в зависимости от состояния =====
+void MainWindow::updateUI()
+{
+    if (authManager->isAuthenticated()) {
+        // ===== Авторизованное состояние =====
+        ui->statusLabel->setText("Статус: Авторизован ✅");
+
+        // Получаем токены
+        QString accessToken = authManager->getAccessToken();
+        QString idToken = authManager->getIdToken();
+        QString refreshToken = authManager->getRefreshToken();
+
+        // Обновляем поля
+        ui->accessTokenEdit->setPlainText(accessToken);
+        ui->idTokenEdit->setPlainText(idToken);
+        ui->refreshTokenEdit->setPlainText(refreshToken);
+
+        // Обновляем время истечения
+        QDateTime expiresAt = authManager->getExpirationTime();
+        if (expiresAt.isValid()) {
+            ui->accessExpiryLabel->setText("Время истечения: " + expiresAt.toString());
+        } else {
+            ui->accessExpiryLabel->setText("Время истечения: --");
+        }
+
+        // Декодируем JWT
+        ui->idPayloadEdit->setPlainText(decodeJWT(idToken));
+        ui->accessPayloadEdit->setPlainText(decodeJWT(accessToken));
+
+        // Блокируем кнопку Login, разблокируем Refresh и Logout
+        ui->loginButton->setEnabled(false);
+        ui->refreshButton->setEnabled(true);
+        ui->logoutButton->setEnabled(true);
+
+    } else {
+        // ===== Неавторизованное состояние =====
+        ui->statusLabel->setText("Статус: Не авторизован ❌");
+
+        // Очищаем все поля
+        ui->accessTokenEdit->clear();
+        ui->idTokenEdit->clear();
+        ui->refreshTokenEdit->clear();
+        ui->idPayloadEdit->clear();
+        ui->accessPayloadEdit->clear();
+        ui->tokenResponseEdit->clear();
+        ui->accessExpiryLabel->setText("Время истечения: --");
+        ui->lastRefreshLabel->setText("Время обновления: --");
+
+        // Разблокируем кнопку Login, блокируем Refresh и Logout
+        ui->loginButton->setEnabled(true);
+        ui->refreshButton->setEnabled(false);
+        ui->logoutButton->setEnabled(false);
+    }
+}
+
 // ===== Кнопка "Вход" =====
 void MainWindow::onLogin()
 {
     qDebug() << "=== Кнопка Login нажата ===";
     ui->statusLabel->setText("Статус: Выполняется вход...");
+    ui->loginButton->setEnabled(false); // Блокируем кнопку на время входа
     authManager->login(); // Запускаем процесс аутентификации
 }
 
@@ -60,6 +120,7 @@ void MainWindow::onLogin()
 void MainWindow::onRefresh()
 {
     ui->statusLabel->setText("Статус: Обновление токенов...");
+    ui->refreshButton->setEnabled(false); // Блокируем кнопку на время обновления
     authManager->refreshTokens(); // Принудительное обновление токенов
 }
 
@@ -68,43 +129,31 @@ void MainWindow::onLogout()
 {
     authManager->logout(); // Очищаем токены и сессию
 
-    // Очищаем все поля интерфейса
-    ui->statusLabel->setText("Статус: Не авторизован");
-    ui->accessTokenEdit->clear();
-    ui->idTokenEdit->clear();
-    ui->refreshTokenEdit->clear();
-    ui->idPayloadEdit->clear();
-    ui->accessPayloadEdit->clear();
-    ui->tokenResponseEdit->clear();
-    ui->accessExpiryLabel->setText("Время истечения: --");
-    ui->lastRefreshLabel->setText("Время обновления: --");
+    // Обновляем UI через updateUI()
+    updateUI();
+
+    // Дополнительно показываем статус
+    ui->statusLabel->setText("Статус: Выполнен выход");
 }
 
 // ===== Успешная аутентификация =====
 void MainWindow::onAuthenticated()
 {
-    // Получаем токены из менеджера
-    QString accessToken = authManager->getAccessToken();
-    QString idToken = authManager->getIdToken();
-    QString refreshToken = authManager->getRefreshToken();
-
     qDebug() << "=== onAuthenticated() ВЫЗВАН ===";
 
-    // Обновляем интерфейс
-    ui->statusLabel->setText("Статус: Авторизован");
-    ui->accessTokenEdit->setPlainText(accessToken);
-    ui->idTokenEdit->setPlainText(idToken);
-    ui->refreshTokenEdit->setPlainText(refreshToken);
-    ui->accessExpiryLabel->setText("Время истечения: " +
-                                   authManager->getExpirationTime().toString());
+    // Обновляем UI через updateUI()
+    updateUI();
+
+    // Дополнительно обновляем время последнего обновления
     ui->lastRefreshLabel->setText("Время обновления: " +
                                   QDateTime::currentDateTime().toString());
 
-    // Декодируем JWT и отображаем Payload
-    ui->idPayloadEdit->setPlainText(decodeJWT(idToken));
-    ui->accessPayloadEdit->setPlainText(decodeJWT(accessToken));
+    // Разблокируем кнопки
+    ui->loginButton->setEnabled(false);
+    ui->refreshButton->setEnabled(true);
+    ui->logoutButton->setEnabled(true);
 
-    // UserInfo удалён из ТЗ — не отображаем
+    qDebug() << "=== Аутентификация успешна, UI обновлён ===";
 }
 
 // ===== Получен ответ от Token Endpoint (для отладки) =====
@@ -117,6 +166,11 @@ void MainWindow::onTokenResponseReceived(const QString &response)
 void MainWindow::onError(const QString &error)
 {
     ui->statusLabel->setText("Статус: Ошибка");
+
+    // Разблокируем кнопки
+    ui->loginButton->setEnabled(true);
+    ui->refreshButton->setEnabled(true);
+
     QMessageBox::warning(this, "Ошибка", error); // Показываем всплывающее окно
 }
 
@@ -135,11 +189,11 @@ void MainWindow::onSessionExpiring()
     if (reply == QMessageBox::Ok) {
         // Продлеваем сессию
         authManager->refreshTokens();
-        ui->statusLabel->setText("Статус: Сессия продлена ");
+        ui->statusLabel->setText("Статус: Сессия продлена");
     } else {
         // Выход
         onLogout();
-        ui->statusLabel->setText("Статус: Выход выполнен ");
+        ui->statusLabel->setText("Статус: Выход выполнен");
     }
 }
 
@@ -148,8 +202,8 @@ void MainWindow::onSessionExpired()
 {
     qDebug() << "=== Сессия истекла (очистка) ===";
 
-    // Очищаем интерфейс
-    onLogout();
+    // Очищаем интерфейс через updateUI()
+    updateUI();
 
     // Показываем сообщение
     QMessageBox::information(this, "Сессия истекла",
