@@ -30,7 +30,7 @@ qt_add_executable(QtAuthoriza
     mainwindow.ui
     authmanager.h
     authmanager.cpp
-    envreader.h envreader.cpp
+    envreader.cpp
     envreader.h
 )
 
