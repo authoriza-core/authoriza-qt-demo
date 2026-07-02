@@ -52,14 +52,13 @@
 
 ### 1. Клонирование репозитория
 
-```bash
 git clone https://github.com/authoriza-core/authoriza-qt-demo.git
 cd authoriza-qt-demo
-```
+
 
 ### 2. Установка Qt
 
-Скачайте и установите Qt 6.8.0 : (на любом доступном для скачивания сайте, не обязательно на официальном) 
+Скачайте и установите Qt 6.8.0:  
 [https://www.rusrailsim.ru/qt6-qtcreator-ide-installation/](https://www.rusrailsim.ru/qt6-qtcreator-ide-installation/)
 
 При установке **обязательно** выберите компоненты:
@@ -83,12 +82,10 @@ cd authoriza-qt-demo
 
 Скопируйте файл `.env.example` в `.env` и укажите свои URL:
 
-```bash
 cp .env.example .env
-```
 
-Отредактируйте `.env`, указав URL вашего сервера Авторизы.
-
+**Важно:** В файле `.env` по умолчанию указаны URL **тестового стенда** Авторизы.  
+Замените их на адрес вашего сервера Авторизы, если он отличается.
 
 ### 5. Подключение jwt-cpp и nlohmann/json
 
@@ -118,9 +115,7 @@ cp .env.example .env
 
 Если OpenSSL установлен в нестандартный путь, измените путь в `CMakeLists.txt`:
 
-```cmake
 set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL-Win64") # укажите ваш путь
-```
 
 ### 4. Сборка и запуск
 
@@ -146,11 +141,11 @@ set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL-Win64") # укажите ваш �
 
 4. **Сохраните** приложение и скопируйте **Client ID**.
 
-5. **Вставьте Client ID** в файл `mainwindow.cpp`:
+5. **Вставьте Client ID** в файл `.env`:
 
-```cpp
-authManager->setupOIDC("ВАШ_CLIENT_ID");
-```
+CLIENT_ID=ВАШ_CLIENT_ID
+
+> ⚠️ **Важно:** Если вы используете **тестовый стенд**, URL в `.env` должны указывать на него, а не на `oidc.authoriza.ru`.
 
 ---
 
@@ -214,22 +209,35 @@ authManager->setupOIDC("ВАШ_CLIENT_ID");
 
 ## 📁 Структура проекта
 
-```
 authoriza-qt-demo/
-├── CMakeLists.txt           # Файл сборки CMake
-├── main.cpp                 # Точка входа
-├── mainwindow.h             # Заголовок главного окна
-├── mainwindow.cpp           # Реализация главного окна
-├── mainwindow.ui            # Визуальный интерфейс (Qt Designer)
-├── authmanager.h            # Заголовок менеджера аутентификации
-├── authmanager.cpp          # Реализация OIDC-клиента
-├── envreader.h              # Чтение .env файла
-├── envreader.cpp            # Реализация EnvReader
-├── jwt-cpp-master/          # Библиотека jwt-cpp
-├── json-develop/            # Библиотека nlohmann/json
-├── .env.example             # Пример конфигурации
-└── README.md                # Этот файл
-```
+├── CMakeLists.txt # Файл сборки CMake
+├── main.cpp # Точка входа в приложение
+│
+├── mainwindow.h # Заголовок главного окна
+├── mainwindow.cpp # Реализация главного окна
+├── mainwindow.ui # Визуальный интерфейс (Qt Designer)
+├── ui_helper.cpp # Вспомогательные методы для UI
+│
+├── authmanager.h # Заголовок менеджера аутентификации
+├── authmanager.cpp # Реализация OIDC-клиента (конструктор, настройка, геттеры)
+│
+├── oidc_login.cpp # Вход (PKCE, открытие браузера, callback)
+├── oidc_token_exchange.cpp # Обмен кода на токены
+├── oidc_refresh.cpp # Обновление токенов через Refresh Token
+├── oidc_session.cpp # Управление сессией (сохранение, восстановление, выход)
+├── oidc_check.cpp # Периодическая проверка и автоматическое обновление
+├── oidc_handlers.cpp # Обработчики успешной аутентификации и ошибок
+├── oidc_network.cpp # Сетевые утилиты (отправка POST, очистка ответов)
+│
+├── envreader.h # Заголовок для чтения .env файла
+├── envreader.cpp # Реализация загрузки и чтения переменных из .env
+│
+├── jwt-cpp-master/ # Библиотека для декодирования JWT-токенов
+├── json-develop/ # Библиотека nlohmann/json для парсинга JSON
+│
+├── .env.example # Пример конфигурации (переменные окружения)
+├── .gitignore # Список игнорируемых файлов для Git
+└── README.md # Документация проекта
 
 ---
 
@@ -243,6 +251,7 @@ authoriza-qt-demo/
 | **Ошибка декодирования JWT** | Убедитесь, что подключены `jwt-cpp` и `nlohmann/json`. Проверьте пути в `CMakeLists.txt`. |
 | **Ошибка "No valid kits found"** | Настройте комплект (Kit) в Qt Creator с правильной версией Qt и компилятором. |
 | **Ошибка сборки OpenSSL** | Убедитесь, что в `CMakeLists.txt` указан правильный путь к OpenSSL (содержит папки `include` и `lib`). |
+| **Ошибка `invalid_client`** | Проверьте, что в `.env` указаны **правильные URL сервера Авторизы** (тестовый или продакшн). Убедитесь, что `REDIRECT_URI` в `.env` совпадает с портом, указанным в `authmanager.cpp`. |
 
 ---
 
@@ -260,8 +269,3 @@ authoriza-qt-demo/
 **Кристина**  
 Проект выполнен в рамках практики по интеграции Авторизы для стека Qt Desktop (C++).  
 [GitHub: kristenyn](https://github.com/kristenyn)
-
----
-
-
-
