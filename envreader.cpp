@@ -67,7 +67,7 @@ QString EnvReader::get(const QString &key, const QString &defaultValue)
 {
     // Ленивая загрузка: загружаем файл только при первом обращении
     if (!m_loaded) {
-        loadEnvFile();   // Загрузка .env (если не загружен)
+        loadEnvFile(".env");   // Загрузка .env (если не загружен)
     }
 
     // Поиск значения в кэше. Если ключ не найден — возвращаем defaultValue
