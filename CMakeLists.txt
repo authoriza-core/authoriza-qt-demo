@@ -32,6 +32,14 @@ qt_add_executable(QtAuthoriza
     authmanager.cpp
     envreader.cpp
     envreader.h
+    oidc_login.cpp
+    oidc_token_exchange.cpp
+    oidc_refresh.cpp
+    oidc_session.cpp
+    oidc_check.cpp
+    oidc_handlers.cpp
+    oidc_network.cpp
+    ui_helper.cpp
 )
 
 target_link_libraries(QtAuthoriza
