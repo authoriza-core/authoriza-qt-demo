@@ -210,34 +210,34 @@ CLIENT_ID=ВАШ_CLIENT_ID
 ## 📁 Структура проекта
 
 authoriza-qt-demo/
-├── CMakeLists.txt # Файл сборки CMake
-├── main.cpp # Точка входа в приложение
+├── CMakeLists.txt              # Файл сборки CMake
+├── main.cpp                    # Точка входа в приложение
 │
-├── mainwindow.h # Заголовок главного окна
-├── mainwindow.cpp # Реализация главного окна
-├── mainwindow.ui # Визуальный интерфейс (Qt Designer)
-├── ui_helper.cpp # Вспомогательные методы для UI
+├── mainwindow.h                # Заголовок главного окна
+├── mainwindow.cpp              # Реализация главного окна
+├── mainwindow.ui               # Визуальный интерфейс (Qt Designer)
+├── ui_helper.cpp               # Вспомогательные методы для UI
 │
-├── authmanager.h # Заголовок менеджера аутентификации
-├── authmanager.cpp # Реализация OIDC-клиента (конструктор, настройка, геттеры)
+├── authmanager.h               # Заголовок менеджера аутентификации
+├── authmanager.cpp             # Реализация OIDC-клиента (конструктор, настройка, геттеры)
 │
-├── oidc_login.cpp # Вход (PKCE, открытие браузера, callback)
-├── oidc_token_exchange.cpp # Обмен кода на токены
-├── oidc_refresh.cpp # Обновление токенов через Refresh Token
-├── oidc_session.cpp # Управление сессией (сохранение, восстановление, выход)
-├── oidc_check.cpp # Периодическая проверка и автоматическое обновление
-├── oidc_handlers.cpp # Обработчики успешной аутентификации и ошибок
-├── oidc_network.cpp # Сетевые утилиты (отправка POST, очистка ответов)
+├── oidc_login.cpp              # Вход (PKCE, открытие браузера, callback)
+├── oidc_token_exchange.cpp     # Обмен кода на токены
+├── oidc_refresh.cpp            # Обновление токенов через Refresh Token
+├── oidc_session.cpp            # Управление сессией (сохранение, восстановление, выход)
+├── oidc_check.cpp              # Периодическая проверка и автоматическое обновление
+├── oidc_handlers.cpp           # Обработчики успешной аутентификации и ошибок
+├── oidc_network.cpp            # Сетевые утилиты (отправка POST, очистка ответов)
 │
-├── envreader.h # Заголовок для чтения .env файла
-├── envreader.cpp # Реализация загрузки и чтения переменных из .env
+├── envreader.h                 # Заголовок для чтения .env файла
+├── envreader.cpp               # Реализация загрузки и чтения переменных из .env
 │
-├── jwt-cpp-master/ # Библиотека для декодирования JWT-токенов
-├── json-develop/ # Библиотека nlohmann/json для парсинга JSON
+├── jwt-cpp-master/             # Библиотека для декодирования JWT-токенов
+├── json-develop/               # Библиотека nlohmann/json для парсинга JSON
 │
-├── .env.example # Пример конфигурации (переменные окружения)
-├── .gitignore # Список игнорируемых файлов для Git
-└── README.md # Документация проекта
+├── .env.example                # Пример конфигурации (переменные окружения)
+├── .gitignore                  # Список игнорируемых файлов для Git
+└── README.md                   # Документация проекта
 
 ---
 
