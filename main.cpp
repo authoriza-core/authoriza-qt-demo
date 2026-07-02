@@ -2,7 +2,6 @@
 #include <QApplication>   // Класс Qt-приложения (управляет событийным циклом)
 
 
-
 // Точка входа в приложение
 int main(int argc, char *argv[])
 {
