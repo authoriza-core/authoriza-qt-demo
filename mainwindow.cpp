@@ -1,212 +1,99 @@
-#include "mainwindow.h"
-#include "ui_mainwindow.h"
-#include "authmanager.h"
-#include <QMessageBox>   // Всплывающие диалоговые окна (информация, предупреждение, ошибка)
-#include <QDateTime>     // Работа с датой и временем (отображение времени обновления)
-#include <QDebug>        // Отладочный вывод (qDebug())
-#include <jwt-cpp/jwt.h>        // Декодирование JWT-токенов (для отображения Payload)
-#include <nlohmann/json.hpp>    // Парсинг JSON (для декодирования JWT)
+#include "mainwindow.h"                    // Заголовок главного окна
+#include "ui_mainwindow.h"                 // Сгенерированный UI-класс
+#include "authmanager.h"                   // Менеджер аутентификации
+#include <QMessageBox>                     // Для диалоговых окон
+#include <QDateTime>                       // Для работы с датой/временем
+#include <QDebug>                          // Для отладочного вывода
+#include "envreader.h"                     // Для чтения .env файла
 
-// ===== Конструктор главного окна =====
-MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent)
-    , ui(new Ui::MainWindow)
+MainWindow::MainWindow(QWidget *parent)    // Конструктор
+    : QMainWindow(parent), ui(new Ui::MainWindow)
 {
-    ui->setupUi(this); // Загружаем интерфейс из .ui файла
+    ui->setupUi(this);                     // Загрузка UI из .ui файла
+    authManager = new AuthManager(this);   // Создание менеджера аутентификации
+    QString clientId = EnvReader::get("CLIENT_ID"); // Чтение Client ID из .env. Получение Client ID
+    qDebug() << "=== Client ID из .env ===" << clientId;
 
-    // Создаём менеджер аутентификации
-    authManager = new AuthManager(this);
-    // Настраиваем OIDC с Client ID из Авторизы
-    authManager->setupOIDC("16e611ef-283d-4837-9776-23e153afdd2f");
-
-    // Подключаем сигналы от кнопок к слотам
+    if (clientId.isEmpty()) {              // Если Client ID не найден
+        qDebug() << "Ошибка: CLIENT_ID не найден в .env!";
+        clientId = "16e611ef-283d-4837-9776-23e153afdd2f"; // Fallback
+    }
+    authManager->setupOIDC(clientId);      // Настройка OIDC
+    // Подключение сигналов кнопок
     connect(ui->loginButton, &QPushButton::clicked, this, &MainWindow::onLogin);
     connect(ui->refreshButton, &QPushButton::clicked, this, &MainWindow::onRefresh);
     connect(ui->logoutButton, &QPushButton::clicked, this, &MainWindow::onLogout);
-
-    // Подключаем сигналы от AuthManager к слотам
-    connect(authManager, &AuthManager::authenticated,
-            this, &MainWindow::onAuthenticated);
-    connect(authManager, &AuthManager::errorOccurred,
-            this, &MainWindow::onError);
-    connect(authManager, &AuthManager::tokenEndpointResponseReceived,
-            this, &MainWindow::onTokenResponseReceived);
-
-    // Подключаем уведомления о сессии
-    connect(authManager, &AuthManager::sessionExpiring,
-            this, &MainWindow::onSessionExpiring);
-    connect(authManager, &AuthManager::sessionExpired,
-            this, &MainWindow::onSessionExpired);
-
-    // Пытаемся восстановить сессию при запуске
-    authManager->restoreSession();
-
-    // ===== Новый вызов: обновляем UI после восстановления сессии =====
-    updateUI();
+    // Подключение сигналов AuthManager
+    connect(authManager, &AuthManager::authenticated, this, &MainWindow::onAuthenticated);
+    connect(authManager, &AuthManager::errorOccurred, this, &MainWindow::onError);
+    connect(authManager, &AuthManager::tokenEndpointResponseReceived, this, &MainWindow::onTokenResponseReceived);
+    connect(authManager, &AuthManager::sessionExpiring, this, &MainWindow::onSessionExpiring);
+    connect(authManager, &AuthManager::sessionExpired, this, &MainWindow::onSessionExpired);
+    authManager->restoreSession();         // Восстановление сессии
+    updateUI();                            // Обновление UI
 }
-
-// ===== Деструктор =====
-MainWindow::~MainWindow()
+MainWindow::~MainWindow()                  // Деструктор
 {
-    delete ui; // Освобождаем память, занятую интерфейсом
+    delete ui;                             // Очистка UI
 }
-
-
-// ===== обновление UI в зависимости от состояния =====
-void MainWindow::updateUI()
+void MainWindow::updateUI()                // Обновление UI
 {
-    if (authManager->isAuthenticated()) {
-        // ===== Авторизованное состояние =====
-        ui->statusLabel->setText("Статус: Авторизован ✅");
-
-        // Получаем токены
-        QString accessToken = authManager->getAccessToken();
-        QString idToken = authManager->getIdToken();
-        QString refreshToken = authManager->getRefreshToken();
-
-        // Обновляем поля
-        ui->accessTokenEdit->setPlainText(accessToken);
-        ui->idTokenEdit->setPlainText(idToken);
-        ui->refreshTokenEdit->setPlainText(refreshToken);
-
-        // Обновляем время истечения
-        QDateTime expiresAt = authManager->getExpirationTime();
-        if (expiresAt.isValid()) {
-            ui->accessExpiryLabel->setText("Время истечения: " + expiresAt.toString());
-        } else {
-            ui->accessExpiryLabel->setText("Время истечения: --");
-        }
-
-        // Декодируем JWT
-        ui->idPayloadEdit->setPlainText(decodeJWT(idToken));
-        ui->accessPayloadEdit->setPlainText(decodeJWT(accessToken));
-
-        // Блокируем кнопку Login, разблокируем Refresh и Logout
-        ui->loginButton->setEnabled(false);
-        ui->refreshButton->setEnabled(true);
-        ui->logoutButton->setEnabled(true);
-
+    bool auth = authManager->isAuthenticated(); // Проверка аутентификации
+    updateAuthStatus(auth);                // Обновление статуса
+    if (auth) {
+        populateTokens(authManager->getAccessToken(),   // Заполнение токенов
+                       authManager->getIdToken(),
+                       authManager->getRefreshToken());
+        updateExpiryTime(authManager->getExpirationTime()); // Обновление времени истечения
     } else {
-        // ===== Неавторизованное состояние =====
-        ui->statusLabel->setText("Статус: Не авторизован ❌");
-
-        // Очищаем все поля
-        ui->accessTokenEdit->clear();
-        ui->idTokenEdit->clear();
-        ui->refreshTokenEdit->clear();
-        ui->idPayloadEdit->clear();
-        ui->accessPayloadEdit->clear();
-        ui->tokenResponseEdit->clear();
-        ui->accessExpiryLabel->setText("Время истечения: --");
-        ui->lastRefreshLabel->setText("Время обновления: --");
-
-        // Разблокируем кнопку Login, блокируем Refresh и Logout
-        ui->loginButton->setEnabled(true);
-        ui->refreshButton->setEnabled(false);
-        ui->logoutButton->setEnabled(false);
+        clearAllFields();                  // Очистка полей
     }
 }
-
-// ===== Кнопка "Вход" =====
-void MainWindow::onLogin()
+void MainWindow::onLogin()                 // Кнопка Login
 {
-    qDebug() << "=== Кнопка Login нажата ===";
-    ui->statusLabel->setText("Статус: Выполняется вход...");
-    ui->loginButton->setEnabled(false); // Блокируем кнопку на время входа
-    authManager->login(); // Запускаем процесс аутентификации
+    ui->statusLabel->setText("Выполняется вход..."); // Статус
+    ui->loginButton->setEnabled(false);    // Блокировка кнопки
+    authManager->login();                  // Запуск входа
 }
-
-// ===== Кнопка "Обновить токены" =====
-void MainWindow::onRefresh()
+void MainWindow::onRefresh()               // Кнопка Refresh
 {
-    ui->statusLabel->setText("Статус: Обновление токенов...");
-    ui->refreshButton->setEnabled(false); // Блокируем кнопку на время обновления
-    authManager->refreshTokens(); // Принудительное обновление токенов
+    ui->statusLabel->setText("Обновление..."); // Статус
+    ui->refreshButton->setEnabled(false);  // Блокировка кнопки
+    authManager->refreshTokens();          // Обновление токенов
 }
-
-// ===== Кнопка "Выход" =====
-void MainWindow::onLogout()
+void MainWindow::onLogout()                // Кнопка Logout
 {
-    authManager->logout(); // Очищаем токены и сессию
-
-    // Обновляем UI через updateUI()
-    updateUI();
-
-    // Дополнительно показываем статус
-    ui->statusLabel->setText("Статус: Выполнен выход");
+    authManager->logout();                 // Выход
+    updateUI();                            // Обновление UI
+    ui->statusLabel->setText("Выход выполнен"); // Статус
 }
-
-// ===== Успешная аутентификация =====
-void MainWindow::onAuthenticated()
+void MainWindow::onAuthenticated()         // Успешная аутентификация
 {
-    qDebug() << "=== onAuthenticated() ВЫЗВАН ===";
-
-    // Обновляем UI через updateUI()
-    updateUI();
-
-    // Дополнительно обновляем время последнего обновления
-    ui->lastRefreshLabel->setText("Время обновления: " +
-                                  QDateTime::currentDateTime().toString());
-
-    // Разблокируем кнопки
-    ui->loginButton->setEnabled(false);
-    ui->refreshButton->setEnabled(true);
-    ui->logoutButton->setEnabled(true);
-
-    qDebug() << "=== Аутентификация успешна, UI обновлён ===";
+    updateUI();                            // Обновление UI
+    updateLastRefreshTime();               // Обновление времени
 }
-
-// ===== Получен ответ от Token Endpoint (для отладки) =====
-void MainWindow::onTokenResponseReceived(const QString &response)
+void MainWindow::onTokenResponseReceived(const QString &response) // Ответ от /token
 {
-    ui->tokenResponseEdit->setPlainText(response);
+    ui->tokenResponseEdit->setPlainText(response); // Вывод ответа
 }
-
-// ===== Обработчик ошибок =====
-void MainWindow::onError(const QString &error)
+void MainWindow::onError(const QString &error)     // Ошибка
 {
-    ui->statusLabel->setText("Статус: Ошибка");
-
-    // Разблокируем кнопки
-    ui->loginButton->setEnabled(true);
-    ui->refreshButton->setEnabled(true);
-
-    QMessageBox::warning(this, "Ошибка", error); // Показываем всплывающее окно
+    ui->statusLabel->setText("Ошибка");
+    ui->loginButton->setEnabled(true);     // Разблокировка Login
+    ui->refreshButton->setEnabled(true);   // Разблокировка Refresh
+    showMessage("Ошибка", error, QMessageBox::Warning); // Показ сообщения
 }
-
-// ===== Сессия скоро истечет (уведомление) =====
-void MainWindow::onSessionExpiring()
+void MainWindow::onSessionExpiring()       // Сессия скоро истечет
 {
-    qDebug() << "=== Сессия скоро истечет (уведомление) ===";
-
-    // Спрашиваем пользователя, хочет ли он продлить сессию
-    QMessageBox::StandardButton reply;
-    reply = QMessageBox::warning(this, "Сессия истекает",
-                                 "Ваша сессия истекает через минуту.\n"
-                                 "Нажмите 'OK' для продления или 'Cancel' для выхода.",
-                                 QMessageBox::Ok | QMessageBox::Cancel);
-
-    if (reply == QMessageBox::Ok) {
-        // Продлеваем сессию
-        authManager->refreshTokens();
-        ui->statusLabel->setText("Статус: Сессия продлена");
+    if (showQuestion("Сессия истекает", "Продлить сессию?")) { // Вопрос
+        authManager->refreshTokens();      // Продление сессии
+        ui->statusLabel->setText("Сессия продлена");
     } else {
-        // Выход
-        onLogout();
-        ui->statusLabel->setText("Статус: Выход выполнен");
+        onLogout();                        // Выход
     }
 }
-
-// ===== Сессия истекла =====
-void MainWindow::onSessionExpired()
+void MainWindow::onSessionExpired()        // Сессия истекла
 {
-    qDebug() << "=== Сессия истекла (очистка) ===";
-
-    // Очищаем интерфейс через updateUI()
-    updateUI();
-
-    // Показываем сообщение
-    QMessageBox::information(this, "Сессия истекла",
-                             "Ваша сессия истекла.\n"
-                             "Пожалуйста, войдите заново.");
+    updateUI();                            // Обновление UI
+    showMessage("Сессия истекла", "Войдите заново.", QMessageBox::Information); // Сообщение
 }
