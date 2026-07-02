@@ -1,47 +1,48 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include <QMainWindow>  // Базовый класс для главного окна с меню, панелями и статусной строкой
-#include <QObject>      // Базовый класс для всех объектов Qt с поддержкой сигналов/слотов
+#include <QMainWindow>                 // Базовый класс главного окна Qt
+#include <QMessageBox>                 // Для диалоговых окон (ошибки, уведомления)
 
-// Опережающее объявление класса UI, сгенерированного из .ui файла
 QT_BEGIN_NAMESPACE
-namespace Ui { class MainWindow; }
+namespace Ui { class MainWindow; }     // Опережающее объявление UI-класса
 QT_END_NAMESPACE
 
-// Опережающее объявление класса AuthManager, чтобы не подключать заголовочный файл
-class AuthManager;
+class AuthManager;                     // Опережающее объявление AuthManager
 
-// ===== Главное окно приложения =====
-class MainWindow : public QMainWindow
+class MainWindow : public QMainWindow  // Главное окно приложения
 {
-    Q_OBJECT   // Макрос для поддержки сигналов и слотов
+    Q_OBJECT                           // Макрос для сигналов/слотов
 
 public:
     explicit MainWindow(QWidget *parent = nullptr);  // Конструктор
     ~MainWindow();                                   // Деструктор
 
 private slots:
-    // Слоты для кнопок
-    void onLogin();          // Нажатие "Вход"
-    void onRefresh();        // Нажатие "Обновить токены"
-    void onLogout();         // Нажатие "Выход"
-
-    // Слоты для сигналов от AuthManager
+    void onLogin();                                  // Обработчик кнопки "Login"
+    void onRefresh();                                // Обработчик кнопки "Refresh"
+    void onLogout();                                 // Обработчик кнопки "Logout"
     void onAuthenticated();                          // Успешная аутентификация
-    void onError(const QString &error);              // Ошибка
+    void onError(const QString &error);              // Ошибка от AuthManager
     void onTokenResponseReceived(const QString &response); // Ответ от /token
-
-    // Слоты для уведомлений о сессии
-    void onSessionExpiring();   // Сессия скоро истечет
-    void onSessionExpired();    // Сессия истекла
+    void onSessionExpiring();                        // Сессия скоро истечет
+    void onSessionExpired();                         // Сессия истекла
 
 private:
-    Ui::MainWindow *ui;        // Указатель на интерфейс
-    AuthManager *authManager;  // Указатель на менеджер аутентификации
+    Ui::MainWindow *ui;                 // Указатель на интерфейс (из .ui файла)
+    AuthManager *authManager;           // Указатель на менеджер аутентификации
 
-    // ===== обновление UI в зависимости от состояния =====
-    void updateUI();
+    void updateUI();                    // Обновление UI в зависимости от состояния
+
+    // Вспомогательные методы для UI
+    void populateTokens(const QString &access, const QString &id, const QString &refresh); // Заполнение полей токенами
+    void updateAuthStatus(bool authenticated);          // Обновление статуса авторизации
+    void clearAllFields();                              // Очистка всех полей
+    void updateExpiryTime(const QDateTime &expiresAt);  // Обновление времени истечения
+    void updateLastRefreshTime();                       // Обновление времени последнего обновления
+    void showMessage(const QString &title, const QString &text,   // Показ сообщения
+                     QMessageBox::Icon icon = QMessageBox::Information);
+    bool showQuestion(const QString &title, const QString &text); // Показ вопроса (OK/Cancel)
 };
 
 #endif // MAINWINDOW_H
