@@ -1,11 +1,11 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "authmanager.h"
-#include <QMessageBox>
-#include <QDateTime>
-#include <QDebug>
-#include <jwt-cpp/jwt.h>        // Для декодирования JWT
-#include <nlohmann/json.hpp>    // Для работы с JSON (парсинг Payload)
+#include <QMessageBox>   // Всплывающие диалоговые окна (информация, предупреждение, ошибка)
+#include <QDateTime>     // Работа с датой и временем (отображение времени обновления)
+#include <QDebug>        // Отладочный вывод (qDebug())
+#include <jwt-cpp/jwt.h>        // Декодирование JWT-токенов (для отображения Payload)
+#include <nlohmann/json.hpp>    // Парсинг JSON (для декодирования JWT)
 
 // ===== Конструктор главного окна =====
 MainWindow::MainWindow(QWidget *parent)
@@ -41,7 +41,7 @@ MainWindow::MainWindow(QWidget *parent)
     // Пытаемся восстановить сессию при запуске
     authManager->restoreSession();
 
-    // ===== НОВЫЙ ВЫЗОВ: обновляем UI после восстановления сессии =====
+    // ===== Новый вызов: обновляем UI после восстановления сессии =====
     updateUI();
 }
 
