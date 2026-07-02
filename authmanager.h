@@ -1,105 +1,97 @@
 #ifndef AUTHMANAGER_H
 #define AUTHMANAGER_H
 
-#include <QObject>          // Базовый класс для всех объектов Qt с поддержкой сигналов/слотов
-#include <QtNetworkAuth>    // OIDC-клиент (QOAuth2AuthorizationCodeFlow)
-#include <QDateTime>        // Работа с датой и временем (время жизни токенов)
-#include <QString>          // Работа со строками (токены, URL, Client ID)
-#include <QVariantMap>      // Передача данных в callback от OIDC (ключ-значение)
-#include <QTimer>           // Таймер для автоматического обновления токенов
+#include <QObject>                     // Базовый класс Qt с сигналами/слотами
+#include <QtNetworkAuth>               // OIDC-клиент (QOAuth2AuthorizationCodeFlow)
+#include <QDateTime>                   // Для времени жизни токенов
+#include <QString>                     // Для строк (токены, URL, ID)
+#include <QVariantMap>                 // Для данных из callback
+#include <QTimer>                      // Для автоматического обновления
+#include <QNetworkRequest>             // Для HTTP-запросов
 
+class QNetworkReply;                   // Для обработки HTTP-ответов
+class QJsonObject;                     // Для парсинга JSON
 
-// ============================================================
-// Класс AuthManager
-// Управление аутентификацией через OIDC (Authorization Code Flow + PKCE)
-//
-// Отвечает за:
-//   - настройку OIDC-клиента (URL, Client ID, Scope)
-//   - вход пользователя (генерация PKCE, открытие браузера)
-//   - получение и обновление токенов (Access, ID, Refresh)
-//   - сохранение и восстановление сессии (QSettings)
-//   - автоматическое обновление токенов (таймер)
-//   - уведомления об истечении сессии
-// ============================================================
-
+// AuthManager — управление OIDC-аутентификацией (Authorization Code Flow + PKCE)
 class AuthManager : public QObject
 {
-    Q_OBJECT   // Макрос для поддержки сигналов и слотов
+    Q_OBJECT                           // Макрос для сигналов/слотов
 
 public:
-    // ===== Конструктор =====
-    explicit AuthManager(QObject *parent = nullptr);
+    explicit AuthManager(QObject *parent = nullptr);  // Конструктор
 
-    // ===== Настройка OIDC =====
-    void setupOIDC(const QString &clientId);   // Настройка клиента (URL, Client ID)
-    void login();                               // Запуск процесса входа (открывает браузер)
-    void refreshTokens();                       // Принудительное обновление токенов
-    void logout();                              // Выход (очистка токенов и сессии)
+    void setupOIDC(const QString &clientId);          // Настройка OIDC-клиента
+    void login();                                     // Запуск входа (открывает браузер)
+    void refreshTokens();                             // Принудительное обновление токенов
+    void logout();                                    // Выход (очистка сессии)
 
-    // ===== Геттеры =====
-    QString getAccessToken() const;             // Возвращает Access Token
-    QString getIdToken() const;                 // Возвращает ID Token
-    QString getRefreshToken() const;            // Возвращает Refresh Token
-    QDateTime getExpirationTime() const;        // Время истечения Access Token
-    QDateTime getRefreshExpirationTime() const; // Время истечения Refresh Token
+    QString getAccessToken() const;                   // Возвращает Access Token
+    QString getIdToken() const;                       // Возвращает ID Token
+    QString getRefreshToken() const;                  // Возвращает Refresh Token
+    QDateTime getExpirationTime() const;              // Время истечения Access Token
+    QDateTime getRefreshExpirationTime() const;       // Время истечения Refresh Token
 
-    // ===== Состояние =====
-    bool isAuthenticated() const;               // Проверка: авторизован ли пользователь
-
-    // ===== Сохранение/восстановление =====
-    void saveSession();                         // Сохранение сессии в QSettings
-    void restoreSession();                      // Восстановление сессии из QSettings
+    bool isAuthenticated() const;                     // Проверка: авторизован ли пользователь
+    void saveSession();                               // Сохранение сессии в QSettings
+    void restoreSession();                            // Восстановление сессии из QSettings
 
 signals:
-    // ===== Сигналы для UI =====
-    void authenticated();                       // Успешная аутентификация
-    void tokensRefreshed();                     // Токены успешно обновлены
-    void errorOccurred(const QString &error);   // Ошибка
-    void sessionRestored();                     // Сессия восстановлена
-    void tokenEndpointResponseReceived(const QString &response); // Ответ от /token (для отладки)
-
-    // ===== Уведомления о сессии =====
-    void sessionExpiring();   // Сессия скоро истечет (после 2-х обновлений)
-    void sessionExpired();    // Сессия истекла
+    void authenticated();                             // Успешная аутентификация
+    void tokensRefreshed();                           // Токены обновлены
+    void errorOccurred(const QString &error);         // Ошибка
+    void sessionRestored();                           // Сессия восстановлена
+    void tokenEndpointResponseReceived(const QString &response);  // Ответ от /token (для отладки)
+    void sessionExpiring();                           // Сессия скоро истечет
+    void sessionExpired();                            // Сессия истекла
 
 private slots:
-    // ===== Обработчики OIDC =====
-    void onAuthenticationSuccess();                // Успешный обмен кода на токены
+    void onAuthenticationSuccess();                   // Успешный обмен кода на токены
     void onAuthenticationError(const QString &error); // Ошибка аутентификации
     void onCallbackReceived(const QVariantMap &values); // Получен callback от OIDC
-    void exchangeCodeForToken(const QString &code); // Обмен кода на токены
-
-    // ===== Автоматическое обновление =====
-    void checkAndRefresh();   // Периодическая проверка токенов (вызывается по таймеру)
+    void exchangeCodeForToken(const QString &code);   // Обмен кода на токены
+    void checkAndRefresh();                           // Периодическая проверка токенов
 
 private:
-    // ===== OIDC-клиент =====
-    QOAuth2AuthorizationCodeFlow oidc;   // Основной OIDC-клиент Qt
+    QOAuth2AuthorizationCodeFlow oidc;                // OIDC-клиент Qt
 
-    // ===== Токены =====
-    QString m_accessToken;               // Access Token — для доступа к API
-    QString m_refreshToken;              // Refresh Token — для обновления Access Token
-    QString m_idToken;                   // ID Token — содержит имя, email, sub
-    QDateTime m_expiresAt;               // Время истечения Access Token
-    QDateTime m_refreshExpiresAt;        // Время истечения Refresh Token
-    QString m_codeVerifier;              // PKCE code_verifier (для защиты)
+    QString m_accessToken;                            // Access Token
+    QString m_refreshToken;                           // Refresh Token
+    QString m_idToken;                                // ID Token
+    QDateTime m_expiresAt;                            // Время истечения Access Token
+    QDateTime m_refreshExpiresAt;                     // Время истечения Refresh Token
+    QString m_codeVerifier;                           // PKCE code_verifier
 
-    // ===== Таймер и счётчик =====
-    QTimer *autoRefreshTimer;            // Таймер для автоматического обновления (каждую минуту)
-    int m_refreshCount;                  // Счётчик обновлений (для уведомлений)
+    QTimer *autoRefreshTimer = nullptr;               // Таймер автообновления
+    int m_refreshCount = 0;                           // Счётчик обновлений
 
-    // ===== Вспомогательные методы =====
-    void handleSessionExpired();         // Обработка истечения сессии
+    void handleSessionExpired();                      // Обработка истечения сессии
+    bool shouldRefresh() const;                       // Нужно ли обновить токен?
+    bool isSessionExpired() const;                    // Истекла ли сессия?
+    bool isRefreshTokenAvailable() const;             // Доступен ли Refresh Token?
 
-    // ===== Проверки состояния =====
-    bool shouldRefresh() const;          // Нужно ли обновить токен? (осталось <= 30 секунд)
-    bool isSessionExpired() const;       // Истекла ли сессия?
-    bool isRefreshTokenAvailable() const; // Доступен ли Refresh Token?
+    void performAutoRefresh();                        // Выполнение автообновления
+
+    void handleTokenExchangeResponse(QNetworkReply *reply);  // Обработка ответа от /token
+    void handleRefreshResponse(QNetworkReply *reply);        // Обработка ответа на обновление
+    void handleRefreshError(int httpCode);                   // Обработка ошибки обновления
+    void parseAndSaveTokens(const QJsonObject &obj);         // Парсинг и сохранение токенов
+
+    QString generateCodeVerifier() const;                    // Генерация code_verifier
+    QString generateCodeChallenge(const QString &codeVerifier) const; // Генерация code_challenge
+    QUrl buildAuthorizationUrl(const QString &codeChallenge) const;   // Построение URL авторизации
+
+    QNetworkRequest buildTokenExchangeRequest() const;       // Запрос для обмена кода
+    QByteArray buildTokenExchangeBody(const QString &code) const; // Тело запроса обмена
+
+    QNetworkRequest buildRefreshRequest() const;             // Запрос для обновления
+    QByteArray buildRefreshBody() const;                     // Тело запроса обновления
+
+    void sendPostRequest(const QNetworkRequest &request,     // Отправка POST-запроса
+                         const QByteArray &body,
+                         void (AuthManager::*handler)(QNetworkReply*));
+    void cleanupReply(QNetworkReply *reply);                 // Очистка HTTP-ответа
 };
 
-
-
-// Вспомогательная функция
-QString decodeJWT(const QString &token);  // Декодирование JWT и возврат Payload в виде JSON
+QString decodeJWT(const QString &token);           // Декодирование JWT в JSON
 
 #endif // AUTHMANAGER_H
