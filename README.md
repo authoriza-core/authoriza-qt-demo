@@ -55,7 +55,6 @@
 git clone https://github.com/authoriza-core/authoriza-qt-demo.git
 cd authoriza-qt-demo
 
-
 ### 2. Установка Qt
 
 Скачайте и установите Qt 6.8.0:  
@@ -80,12 +79,11 @@ cd authoriza-qt-demo
 
 ### 4. Настройка конфигурации (.env)
 
-Скопируйте файл `.env.example` в `.env` и укажите свои URL:
+Скопируйте файл `.env.example` в `.env`:
 
 cp .env.example .env
 
-**Важно:** В файле `.env` по умолчанию указаны URL **тестового стенда** Авторизы.  
-Замените их на адрес вашего сервера Авторизы, если он отличается.
+Отредактируйте файл `.env` и укажите ваш `CLIENT_ID`, полученный при регистрации приложения в Авторизе.
 
 ### 5. Подключение jwt-cpp и nlohmann/json
 
@@ -115,6 +113,7 @@ cp .env.example .env
 
 Если OpenSSL установлен в нестандартный путь, измените путь в `CMakeLists.txt`:
 
+
 set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL-Win64") # укажите ваш путь
 
 ### 4. Сборка и запуск
@@ -143,9 +142,7 @@ set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL-Win64") # укажите ваш �
 
 5. **Вставьте Client ID** в файл `.env`:
 
-CLIENT_ID=ВАШ_CLIENT_ID
-
-> ⚠️ **Важно:** Если вы используете **тестовый стенд**, URL в `.env` должны указывать на него, а не на `oidc.authoriza.ru`.
+CLIENT_ID=ВАШ_ИДЕНТИФИКАТОР_КЛИЕНТА
 
 ---
 
@@ -230,7 +227,6 @@ CLIENT_ID=ВАШ_CLIENT_ID
 | `.env.example` | Пример конфигурации |
 | `.gitignore` | Список игнорируемых файлов |
 | `README.md` | Документация проекта |
----
 
 ## 🐛 Возможные проблемы и решения
 
@@ -242,7 +238,7 @@ CLIENT_ID=ВАШ_CLIENT_ID
 | **Ошибка декодирования JWT** | Убедитесь, что подключены `jwt-cpp` и `nlohmann/json`. Проверьте пути в `CMakeLists.txt`. |
 | **Ошибка "No valid kits found"** | Настройте комплект (Kit) в Qt Creator с правильной версией Qt и компилятором. |
 | **Ошибка сборки OpenSSL** | Убедитесь, что в `CMakeLists.txt` указан правильный путь к OpenSSL (содержит папки `include` и `lib`). |
-| **Ошибка `invalid_client`** | Проверьте, что в `.env` указаны **правильные URL сервера Авторизы** (тестовый или продакшн). Убедитесь, что `REDIRECT_URI` в `.env` совпадает с портом, указанным в `authmanager.cpp`. |
+| **Ошибка `invalid_client`** | Проверьте, что в `.env` указан правильный `CLIENT_ID`. Убедитесь, что `REDIRECT_URI` в `.env` совпадает с портом, указанным в `authmanager.cpp`. |
 
 ---
 
@@ -260,3 +256,8 @@ CLIENT_ID=ВАШ_CLIENT_ID
 **Кристина**  
 Проект выполнен в рамках практики по интеграции Авторизы для стека Qt Desktop (C++).  
 [GitHub: kristenyn](https://github.com/kristenyn)
+
+
+---
+
+
