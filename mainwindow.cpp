@@ -14,9 +14,10 @@ MainWindow::MainWindow(QWidget *parent)    // Конструктор
     QString clientId = EnvReader::get("CLIENT_ID"); // Чтение Client ID из .env. Получение Client ID
     qDebug() << "=== Client ID из .env ===" << clientId;
 
-    if (clientId.isEmpty()) {              // Если Client ID не найден
+    if (clientId.isEmpty()) {
         qDebug() << "Ошибка: CLIENT_ID не найден в .env!";
-        clientId = "16e611ef-283d-4837-9776-23e153afdd2f"; // Fallback
+        qDebug() << "Укажите CLIENT_ID в файле .env";
+        clientId = "NOT_DEFINED"; // Fallback
     }
     authManager->setupOIDC(clientId);      // Настройка OIDC
     // Подключение сигналов кнопок
